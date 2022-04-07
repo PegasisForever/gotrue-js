@@ -184,7 +184,7 @@ export default class GoTrueClient {
    * @param password The user's password.
    * @param refreshToken A valid refresh token that was returned on login.
    * @param provider One of the providers supported by GoTrue.
-   * @param redirectTo A URL to send the user to after they are confirmed (OAuth logins only). 
+   * @param redirectTo A URL to send the user to after they are confirmed (OAuth logins only).
    * @param shouldCreateUser A boolean flag to indicate whether to automatically create a user on magiclink / otp sign-ins if the user doesn't exist. Defaults to true.
    * @param scopes A space-separated list of scopes granted to the OAuth application.
    */
@@ -195,6 +195,7 @@ export default class GoTrueClient {
       shouldCreateUser?: boolean
       scopes?: string
       captchaToken?: string
+      popup?: boolean
     } = {}
   ): Promise<{
     session: Session | null
@@ -241,9 +242,10 @@ export default class GoTrueClient {
         }
       }
       if (provider) {
-        return this._handleProviderSignIn(provider, {
+        return await this._handleProviderSignIn(provider, {
           redirectTo: options.redirectTo,
           scopes: options.scopes,
+          popup: options.popup,
         })
       }
       if (oidc) {
@@ -404,7 +406,7 @@ export default class GoTrueClient {
       ...this.currentSession,
       access_token,
       token_type: 'bearer',
-      user: this.user()
+      user: this.user(),
     }
 
     return this.currentSession
@@ -546,9 +548,10 @@ export default class GoTrueClient {
     }
   }
 
-  private _handleProviderSignIn(
+  private async _handleProviderSignIn(
     provider: Provider,
     options: {
+      popup?: boolean
       redirectTo?: string
       scopes?: string
     } = {}
@@ -561,7 +564,16 @@ export default class GoTrueClient {
     try {
       // try to open on the browser
       if (isBrowser()) {
-        window.location.href = url
+        if (options.popup) {
+          const popupWindow = window.open(
+            url,
+            undefined,
+            'toolbar=no,menubar=no,width=500,height=700'
+          )
+          if (!popupWindow) throw new Error()
+        } else {
+          window.location.href = url
+        }
       }
       return { provider, url, data: null, session: null, user: null, error: null }
     } catch (e) {
